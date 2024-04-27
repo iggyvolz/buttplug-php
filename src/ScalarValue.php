@@ -2,7 +2,9 @@
 
 namespace iggyvolz\buttplug;
 
-final readonly class ScalarValue
+use JsonSerializable;
+
+final readonly class ScalarValue implements JsonSerializable
 {
     public function __construct(
         public int $index,
@@ -10,5 +12,12 @@ final readonly class ScalarValue
         public string $actuatorType,
     )
     {
+    }
+
+    public function jsonSerialize(): array
+    {
+        $arr = (array)$this;
+        $keys = array_map(ucfirst(...), array_keys($arr));
+        return array_combine($keys, $arr);
     }
 }
