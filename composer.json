@@ -1,0 +1,14 @@
+{
+  "name": "iggyvolz/buttplug-php",
+  "license": "0BSD",
+  "require": {
+    "php": "^8.3",
+    "amphp/websocket-client": "^2",
+    "cuyz/valinor": "^1.12"
+  },
+  "autoload": {
+    "psr-4": {
+      "iggyvolz\\buttplug\\": "src/"
+    }
+  }
+}
