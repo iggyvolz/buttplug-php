@@ -45,7 +45,9 @@ class Connection
 
     public static function connect(WebsocketHandshake|PsrUri|string $ip): self
     {
-        return new self(connect($ip));
+        $self = new self(connect($ip));
+        $self->run();
+        return $self;
     }
 
     private function sendMessages(ClientMessage ...$messages): void
