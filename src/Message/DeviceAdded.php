@@ -6,7 +6,7 @@ use iggyvolz\buttplug\DeviceInfo;
 
 final readonly class DeviceAdded extends ServerMessage
 {
-    private DeviceInfo $device;
+    public DeviceInfo $device;
 
     /**
      * @param array<string,mixed> $deviceMessages
