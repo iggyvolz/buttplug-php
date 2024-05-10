@@ -24,6 +24,7 @@ use iggyvolz\buttplug\Message\StartScanning;
 use iggyvolz\buttplug\Message\StopAllDevices;
 use iggyvolz\buttplug\Message\StopDeviceCmd;
 use iggyvolz\buttplug\Message\StopScanning;
+use Psr\EventDispatcher\EventDispatcherInterface;
 use Psr\Http\Message\UriInterface as PsrUri;
 use function Amp\async;
 use function Amp\delay;
@@ -38,14 +39,14 @@ class Connection
      */
     private array $futures = [];
 
-    private function __construct(private readonly WebsocketConnection $websocketConnection)
+    private function __construct(private readonly WebsocketConnection $websocketConnection, private readonly ?EventDispatcherInterface $eventDispatcher = null)
     {
         $this->mapper = (new MapperBuilder())->allowSuperfluousKeys()->allowPermissiveTypes()->mapper();
     }
 
-    public static function connect(WebsocketHandshake|PsrUri|string $ip): self
+    public static function connect(WebsocketHandshake|PsrUri|string $ip, ?EventDispatcherInterface $eventDispatcher = null): self
     {
-        $self = new self(connect($ip));
+        $self = new self(connect($ip), $eventDispatcher);
         $self->run();
         return $self;
     }
@@ -77,13 +78,9 @@ class Connection
         return $this->sendMessageAsync($message)->await($cancellation);
     }
 
-    /**
-     * @return list<ServerMessage>
-     */
-    private function receiveMessages(): array
+    private function receiveMessages(): void
     {
         $messagesJson = json_decode($this->websocketConnection->receive()->read(), associative: true, flags: JSON_THROW_ON_ERROR);
-//        echo json_encode($messagesJson) . PHP_EOL;
         $messages = array_map(fn(array $obj): ServerMessage => $this->mapper->map("iggyvolz\\buttplug\\Message\\" . array_key_first($obj), Source::array($obj[array_key_first($obj)])->camelCaseKeys()), $messagesJson);
         foreach($messages as $message) {
             if(array_key_exists($message->id, $this->futures)) {
@@ -95,8 +92,8 @@ class Connection
                 }
                 unset($this->futures[$message->id]);
             }
+            $this->eventDispatcher?->dispatch($message);
         }
-        return $messages;
     }
 
     public function run(): void
