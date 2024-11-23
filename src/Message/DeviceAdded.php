@@ -3,13 +3,14 @@
 namespace iggyvolz\buttplug\Message;
 
 use iggyvolz\buttplug\DeviceInfo;
+use iggyvolz\buttplug\MessageAttribute;
 
 final readonly class DeviceAdded extends ServerMessage
 {
     public DeviceInfo $device;
 
     /**
-     * @param array<string,mixed> $deviceMessages
+     * @param array<string,list<MessageAttribute>> $deviceMessages
      */
     public function __construct(
         int $id,

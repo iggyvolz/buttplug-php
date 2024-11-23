@@ -11,13 +11,20 @@ use CuyZ\Valinor\Mapper\Source\Source;
 use CuyZ\Valinor\Mapper\TreeMapper;
 use CuyZ\Valinor\MapperBuilder;
 use iggyvolz\buttplug\Message\ClientMessage;
+use iggyvolz\buttplug\Message\ConnectedEvent;
 use iggyvolz\buttplug\Message\DeviceList;
 use iggyvolz\buttplug\Message\Error;
+use iggyvolz\buttplug\Message\LinearCmd;
 use iggyvolz\buttplug\Message\Ok;
 use iggyvolz\buttplug\Message\Ping;
 use iggyvolz\buttplug\Message\RequestDeviceList;
 use iggyvolz\buttplug\Message\RequestServerInfo;
+use iggyvolz\buttplug\Message\RotateCmd;
 use iggyvolz\buttplug\Message\ScalarCmd;
+use iggyvolz\buttplug\Message\SensorReadCmd;
+use iggyvolz\buttplug\Message\SensorReading;
+use iggyvolz\buttplug\Message\SensorSubscribeCmd;
+use iggyvolz\buttplug\Message\SensorUnsubscribeCmd;
 use iggyvolz\buttplug\Message\ServerInfo;
 use iggyvolz\buttplug\Message\ServerMessage;
 use iggyvolz\buttplug\Message\StartScanning;
@@ -38,7 +45,6 @@ class Connection
      * @var array<int,DeferredFuture>
      */
     private array $futures = [];
-
     private function __construct(private readonly WebsocketConnection $websocketConnection, private readonly ?EventDispatcherInterface $eventDispatcher = null)
     {
         $this->mapper = (new MapperBuilder())->allowSuperfluousKeys()->allowPermissiveTypes()->mapper();
@@ -53,7 +59,7 @@ class Connection
 
     private function sendMessages(ClientMessage ...$messages): void
     {
-//        echo json_encode($messages) . PHP_EOL;
+        echo json_encode($messages) . PHP_EOL;
         $this->websocketConnection->sendText(json_encode($messages));
     }
 
@@ -98,6 +104,7 @@ class Connection
 
     public function run(): void
     {
+        $this->eventDispatcher?->dispatch(new ConnectedEvent($this));
         async(function(){
             while(true) $this->receiveMessages();
         });
@@ -156,5 +163,36 @@ class Connection
     public function scalarCmd(int $deviceIndex, ScalarValue ...$scalars): void
     {
         $this->sendMessage(new ScalarCmd($this->messageId++, $deviceIndex, $scalars));
+    }
+
+    public function linearCmd(int $deviceIndex, LinearValue ...$vectors): void
+    {
+        $this->sendMessage(new LinearCmd($this->messageId++, $deviceIndex, $vectors));
+    }
+
+    public function rotateCmd(int $deviceIndex, RotationValue ...$rotations): void
+    {
+        $this->sendMessage(new RotateCmd($this->messageId++, $deviceIndex, $rotations));
+    }
+
+
+    /**
+     * @return list<int>
+     */
+    public function read(int $deviceIndex, int $sensorIndex, string $sensorType): array
+    {
+        /** @var SensorReading $sensorReading */
+        $sensorReading = $this->sendMessage(new SensorReadCmd($this->messageId++, $deviceIndex, $sensorIndex, $sensorType));
+        return $sensorReading->data;
+    }
+
+    public function subscribe(int $deviceIndex, int $sensorIndex, string $sensorType): void
+    {
+        $this->sendMessage(new SensorSubscribeCmd($this->messageId++, $deviceIndex, $sensorIndex, $sensorType));
+    }
+
+    public function unsubscribe(int $deviceIndex, int $sensorIndex, string $sensorType): void
+    {
+        $this->sendMessage(new SensorUnsubscribeCmd($this->messageId++, $deviceIndex, $sensorIndex, $sensorType));
     }
 }

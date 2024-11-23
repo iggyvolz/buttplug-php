@@ -7,6 +7,10 @@
     "cuyz/valinor": "^1.12",
     "psr/event-dispatcher": "^1.0"
   },
+  "require-dev": {
+    "league/event": "^3",
+    "iggyvolz/simple-attribute-reflection": "^1"
+  },
   "autoload": {
     "psr-4": {
       "iggyvolz\\buttplug\\": "src/"
