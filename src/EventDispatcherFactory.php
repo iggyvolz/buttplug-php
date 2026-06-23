@@ -2,7 +2,6 @@
 
 namespace iggyvolz\buttplug;
 
-use iggyvolz\buttplug\Client\Connection;
 use iggyvolz\buttplug\Client\IConnection;
 use Psr\EventDispatcher\EventDispatcherInterface;
 

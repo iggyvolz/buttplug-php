@@ -7,7 +7,6 @@ use League\Event\EventDispatcher;
 use League\Event\ListenerRegistry;
 use League\Event\ListenerSubscriber;
 use Monolog\Formatter\LineFormatter;
-use Monolog\Formatter\NormalizerFormatter;
 use Monolog\Handler\StreamHandler;
 use Monolog\Level;
 use Monolog\Logger;

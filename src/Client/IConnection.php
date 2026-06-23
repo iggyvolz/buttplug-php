@@ -39,7 +39,7 @@ interface IConnection
 
     public function output(int $deviceIndex, int $featureIndex, Constrict|HwPositionWithDuration|Led|Oscillate|Position|Rotate|RotationWithDirection|Spray|Temperature|Vibrate $command): void;
 
-    public function input(int $deviceIndex, int $featureIndex, InputType $type): Battery|Button|Pressure|RSSI;
+    public function input(int $deviceIndex, int $featureIndex, InputType $type): Battery|Button|Pressure|RSSI|null;
 
     public function subscribe(int $deviceIndex, int $featureIndex, InputType $type): void;
 
@@ -47,6 +47,9 @@ interface IConnection
 
     public ServerInfo $serverInfo {get;}
     public DeviceList $deviceList {get;}
+    /**
+     * @var array<string, Device>
+     */
     public array $devices {get;}
     public LoggerInterface $logger {get;}
 }

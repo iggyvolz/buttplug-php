@@ -4,15 +4,19 @@
   "require": {
     "php": "^8.5",
     "amphp/websocket-client": "^2",
-    "amphp/websocket-server": "^4",
     "cuyz/valinor": "^2.3",
     "psr/event-dispatcher": "^1.0",
     "psr/log": "^3.0"
   },
   "require-dev": {
     "league/event": "^3",
+    "amphp/websocket-server": "^4",
     "iggyvolz/simple-attribute-reflection": "^1",
-    "monolog/monolog": "^3"
+    "monolog/monolog": "^3",
+    "phpstan/phpstan": "^2.2",
+    "amphp/log": "^2",
+    "phan/phan": "^6.0",
+    "nette/tester": "^2.6"
   },
   "autoload": {
     "psr-4": {

@@ -1,13 +1,8 @@
 <?php
 
 use iggyvolz\buttplug\Client\Connection;
-use iggyvolz\buttplug\Input;
 use iggyvolz\buttplug\Message\DeviceList;
-use iggyvolz\buttplug\Message\Input\Battery;
 use iggyvolz\buttplug\Message\CommandType;
-use iggyvolz\buttplug\Message\InputData;
-use iggyvolz\buttplug\Message\InputType;
-use iggyvolz\buttplug\Output;
 use Iggyvolz\SimpleAttributeReflection\AttributeReflection;
 use League\Event\EventDispatcher;
 use League\Event\ListenerRegistry;

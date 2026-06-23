@@ -19,7 +19,7 @@ final readonly class InputData
     }
     public function get(): Battery|RSSI|Pressure|Button
     {
-        return $this->battery ?? $this->rSSI ?? $this->pressure ?? $this->button;
+        return $this->battery ?? $this->rSSI ?? $this->pressure ?? $this->button ?? throw new \LogicException();
     }
     public static function of(Battery|RSSI|Pressure|Button $data): self
     {

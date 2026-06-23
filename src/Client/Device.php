@@ -15,7 +15,7 @@ final class Device
 
     public function __construct(public readonly IConnection $connection, public readonly DeviceInfo $deviceInfo)
     {
-        $this->features = array_map(fn(DeviceFeature $info) => new Feature($this, $info), $this->deviceInfo->deviceFeatures);
+        $this->features = array_values(array_map(fn(DeviceFeature $info) => new Feature($this, $info), $this->deviceInfo->deviceFeatures));
     }
 
     public string $name { get => $this->deviceInfo->deviceName; }

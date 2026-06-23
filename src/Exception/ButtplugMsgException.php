@@ -2,7 +2,6 @@
 
 namespace iggyvolz\buttplug\Exception;
 
-use Exception;
 use iggyvolz\buttplug\Message\Error;
 use iggyvolz\buttplug\Message\ErrorCode;
 

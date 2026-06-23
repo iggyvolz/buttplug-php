@@ -32,7 +32,7 @@ final readonly class OutputCommand
 
     public function get(): Vibrate|Rotate|RotationWithDirection|Oscillate|Constrict|Spray|Temperature|Led|Position|HwPositionWithDuration
     {
-        return $this->vibrate ?? $this->rotate ?? $this->rotationWithDirection ?? $this->oscillate ?? $this->constrict ?? $this->spray ?? $this->temperature ?? $this->led ?? $this->position ?? $this->hwPositionWithDuration;
+        return $this->vibrate ?? $this->rotate ?? $this->rotationWithDirection ?? $this->oscillate ?? $this->constrict ?? $this->spray ?? $this->temperature ?? $this->led ?? $this->position ?? $this->hwPositionWithDuration ?? throw new \LogicException();
     }
 
     public static function of(Spray|Oscillate|Vibrate|Position|Temperature|Led|Constrict|RotationWithDirection|Rotate|HwPositionWithDuration $command): self

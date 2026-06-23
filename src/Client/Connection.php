@@ -7,6 +7,8 @@ use Amp\DeferredFuture;
 use Amp\Future;
 use Amp\Websocket\Client\WebsocketConnection;
 use Amp\Websocket\Client\WebsocketHandshake;
+use Amp\Websocket\WebsocketClient;
+use CuyZ\Valinor\Mapper\Configurator\ConvertKeysToCamelCase;
 use CuyZ\Valinor\Mapper\Source\Source;
 use CuyZ\Valinor\Mapper\TreeMapper;
 use CuyZ\Valinor\MapperBuilder;
@@ -14,7 +16,6 @@ use iggyvolz\buttplug\DeviceInfo;
 use iggyvolz\buttplug\Message\ClientMessage;
 use iggyvolz\buttplug\Message\DeviceList;
 use iggyvolz\buttplug\Message\Error;
-use iggyvolz\buttplug\Message\Extension;
 use iggyvolz\buttplug\Message\Input\Battery;
 use iggyvolz\buttplug\Message\Input\Button;
 use iggyvolz\buttplug\Message\Input\Pressure;
@@ -43,10 +44,12 @@ use iggyvolz\buttplug\Message\ServerMessage;
 use iggyvolz\buttplug\Message\StartScanning;
 use iggyvolz\buttplug\Message\StopCmd;
 use iggyvolz\buttplug\Message\StopScanning;
+use LogicException;
 use Psr\EventDispatcher\EventDispatcherInterface;
 use Psr\Http\Message\UriInterface as PsrUri;
 use Psr\Log\LoggerInterface;
 use Psr\Log\NullLogger;
+use Revolt\EventLoop;
 use Throwable;
 use function Amp\async;
 use function Amp\delay;
@@ -56,36 +59,45 @@ class Connection implements IConnection
 {
     private TreeMapper $mapper;
     private int $nextMessageId = 0;
+
     /** @internal  */
     public function getMessageId(): int {
         return $this->nextMessageId++;
     }
     /**
-     * @var array<int,DeferredFuture>
+     * @var array<int,DeferredFuture<ServerMessage>>
      */
     private array $futures = [];
     protected(set) ServerInfo $serverInfo;
     protected(set) DeviceList $deviceList;
+    /**
+     * @var array<string, Device>
+     */
     protected(set) array $devices;
     private(set) LoggerInterface $logger;
 
     private function __construct(
-        private readonly WebsocketConnection $websocketConnection,
+        private readonly WebsocketClient           $ws,
         private readonly ?EventDispatcherInterface $eventDispatcher = null,
-        LoggerInterface $logger = new NullLogger(),
+        LoggerInterface                            $logger = new NullLogger(),
+        private readonly bool                      $debug = false
     )
     {
         $this->logger = $logger;
-        $this->mapper = new MapperBuilder()->allowSuperfluousKeys()->allowPermissiveTypes()->mapper();
+        $this->mapper = new MapperBuilder()->allowSuperfluousKeys()->allowPermissiveTypes()->configureWith(new ConvertKeysToCamelCase())->mapper();
     }
 
     public static function connect(
-        WebsocketHandshake|PsrUri|string $ip,
+        WebsocketHandshake|PsrUri|string|WebsocketClient $connectionOrIp,
         string $clientName,
         ?EventDispatcherInterface $eventDispatcher = null,
-        LoggerInterface $logger = new NullLogger()): IConnection
+        LoggerInterface $logger = new NullLogger(),
+        bool $debug = false): IConnection
     {
-        $self = new self(connect($ip), $eventDispatcher, $logger);
+        if(!$connectionOrIp instanceof WebsocketClient) {
+            $connectionOrIp = connect($connectionOrIp);
+        }
+        $self = new self($connectionOrIp, $eventDispatcher, $logger, $debug);
         $self->run();
         $logger->debug("Requesting server info");
         $serverInfo = $self->requestServerInfo($clientName);
@@ -98,7 +110,7 @@ class Connection implements IConnection
     protected function sendMessages(ClientMessage ...$messages): void
     {
         $this->logger->debug("Sending messages", ["messages" => $messages]);
-        $this->websocketConnection->sendText(json_encode($messages));
+        $this->ws->sendText(json_encode($messages, flags: JSON_THROW_ON_ERROR));
     }
 
     /**
@@ -107,6 +119,9 @@ class Connection implements IConnection
      */
     private function sendMessageAsync(ClientMessage $message): Future
     {
+        /**
+         * @var DeferredFuture<ServerMessage> $future
+         */
         $future = new DeferredFuture();
         $this->futures[$message->id] = $future;
         $this->sendMessages($message);
@@ -125,9 +140,26 @@ class Connection implements IConnection
 
     private function receiveMessages(): void
     {
-        $messagesJson = json_decode($this->websocketConnection->receive()?->read() ?? "[]", associative: true, flags: JSON_THROW_ON_ERROR);
+        $messagesJson = json_decode($this->ws->receive()?->read() ?? "[]", associative: true, flags: JSON_THROW_ON_ERROR);
+        if(!is_array($messagesJson)) {
+            throw new LogicException("Received non-array messages");
+        }
         $this->logger->debug("Received messages", ["messages" => $messagesJson]);
-        $messages = array_map(fn(array $obj): ServerMessage => $this->mapper->map("iggyvolz\\buttplug\\Message\\" . array_key_first($obj), Source::array($obj[array_key_first($obj)])->camelCaseKeys()), $messagesJson);
+        $messages = array_map(function (mixed $obj): ServerMessage {
+            if(!is_array($obj)) {
+                throw new LogicException("Received non-array message");
+            }
+            $type = array_key_first($obj) ?? throw new LogicException("Received non-typed message");
+            $data = $obj[$type];
+            if(!is_array($data)) {
+                throw new LogicException("Received non-array data");
+            }
+            $serverMessage = $this->mapper->map("iggyvolz\\buttplug\\Message\\$type", Source::array($data));
+            if(!($serverMessage instanceof ServerMessage)) {
+                throw new LogicException("Received non-server message");
+            }
+            return $serverMessage;
+        }, $messagesJson);
         foreach($messages as $message) {
             if(array_key_exists($message->id, $this->futures)) {
                 $future = $this->futures[$message->id];
@@ -152,17 +184,19 @@ class Connection implements IConnection
     public function run(): void
     {
         async(function(){
-            while(true) {
+            while(!$this->ws->isClosed()) {
                 try {
-                    if($this->websocketConnection->isClosed()) {
-                        $this->logger->error("Websocket closed");
-                        return;
-                    }
                     $this->receiveMessages();
                 } catch (Throwable $e) {
                     $this->logger->error("Error in connection", ["exception" => $e]);
+                    if($this->debug) {
+                        // Only throw errors in debug mode (i.e. tests) - otherwise log and swallow
+                        EventLoop::queue(static fn () => throw $e);
+                        return;
+                    }
                 }
             }
+            $this->logger->error("Websocket closed");
         });
     }
 
@@ -179,7 +213,7 @@ class Connection implements IConnection
         $serverInfo = $this->sendMessage(new RequestServerInfo($this->getMessageId(), $clientName, self::MAJOR_VERSION, self::MINOR_VERSION));
         if($serverInfo->maxPingTime > 0) {
             async(function() use ($serverInfo) {
-                while(true) {
+                while(!$this->ws->isClosed()) {
                     try {
                         delay($serverInfo->maxPingTime);
                         $this->ping();
@@ -230,7 +264,7 @@ class Connection implements IConnection
         $this->sendMessage(new OutputCmd($this->getMessageId(), $deviceIndex, $featureIndex, OutputCommand::of($command)));
     }
 
-    public function input(int $deviceIndex, int $featureIndex, InputType $type): Battery|Button|Pressure|RSSI
+    public function input(int $deviceIndex, int $featureIndex, InputType $type): Battery|Button|Pressure|RSSI|null
     {
         /** @var InputReading $reading */
         $reading = $this->sendMessage(new InputCmd($this->getMessageId(), $deviceIndex, $featureIndex, $type, CommandType::Read));
@@ -250,5 +284,10 @@ class Connection implements IConnection
     public function unsubscribe(int $deviceIndex, int $featureIndex, InputType $type): void
     {
         $this->sendMessage(new InputCmd($this->getMessageId(), $deviceIndex, $featureIndex, $type, CommandType::Unsubscribe));
+    }
+
+    public function close(): void
+    {
+        $this->ws->close();
     }
 }
