@@ -10,6 +10,9 @@ abstract readonly class Message implements JsonSerializable
     {
     }
 
+    /**
+     * @return array<string, array<string,mixed>>
+     */
     public function jsonSerialize(): array
     {
         $arr = (array)$this;

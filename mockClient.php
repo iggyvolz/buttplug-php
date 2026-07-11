@@ -2,6 +2,7 @@
 
 use iggyvolz\buttplug\Client\Connection;
 use iggyvolz\buttplug\Message\DeviceList;
+use iggyvolz\buttplug\Message\CommandType;
 use Iggyvolz\SimpleAttributeReflection\AttributeReflection;
 use League\Event\EventDispatcher;
 use League\Event\ListenerRegistry;
@@ -23,17 +24,6 @@ class Listeners implements ListenerSubscriber {
     {
     }
 
-//    #[EventListener]
-//    public function onConnected(ConnectedEvent $connectedEvent): void
-//    {
-//        $this->logger->info("Connected!");
-//        $serverInfo = $connectedEvent->connection->requestServerInfo($this->clientName);
-//
-//        $this->logger->info("Hello from " . $serverInfo->serverName . "!");
-//        $connectedEvent->connection->requestDeviceList();
-//        $this->logger->info("Now scanning for devices...");
-//        $connectedEvent->connection->startScanning();
-//    }
     #[EventListener]
     public function handleDeviceList(DeviceList $devices): void
     {
@@ -44,7 +34,7 @@ class Listeners implements ListenerSubscriber {
                 $this->logger->info("    Feature \"$feature->featureDescription\":");
                 foreach ($feature->input ?? [] as $i => $input) {
                     $this->logger->info("      Input \"$i\":");
-                    $this->logger->info("        Supported Commands: " . implode(", ", $input->command) . "");
+                    $this->logger->info("        Supported Commands: " . implode(", ", array_map(fn(CommandType $t) => $t->name, $input->command)));
                     foreach($input->value as $value) {
                         $this->logger->info("        Minimum: " . $value[0] . "");
                         $this->logger->info("        Maximum: " . $value[1] . "");
@@ -85,6 +75,7 @@ async(function() use ($logger) {
     $eventHandler = new EventDispatcher();
     $eventHandler->subscribeListenersFrom(new Listeners($logger));
     $logger->debug("Attempting to connect...");
-    Connection::connect("ws://127.0.0.1:12345", "buttplug-php", $eventHandler, $logger);
+    $conn = Connection::connect("ws://127.0.0.1:12345", "buttplug-php", $eventHandler, $logger);
+    $logger->debug("Connected to server");
 });
 EventLoop::run();

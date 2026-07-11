@@ -4,6 +4,7 @@ namespace iggyvolz\buttplug\Message;
 
 enum ErrorCode: int implements \JsonSerializable
 {
+    case Simulator = -1;
     case Unknown = 0;
     case Init = 1;
     case Ping = 2;

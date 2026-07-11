@@ -7,7 +7,7 @@ use iggyvolz\buttplug\DeviceInfo;
 final readonly class DeviceList extends ServerMessage
 {
     /**
-     * @param list<DeviceInfo> $devices
+     * @param array<string,DeviceInfo> $devices
      */
     public function __construct(int $id, public array $devices)
     {
