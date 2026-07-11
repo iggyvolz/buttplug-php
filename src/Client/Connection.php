@@ -58,7 +58,7 @@ use function Amp\Websocket\Client\connect;
 class Connection implements IConnection
 {
     private TreeMapper $mapper;
-    private int $nextMessageId = 0;
+    private int $nextMessageId = 1;
 
     /** @internal  */
     public function getMessageId(): int {
